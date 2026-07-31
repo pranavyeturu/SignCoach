@@ -15,3 +15,13 @@ frontend/dist/
 archive/
 data/processed/
 models/
+archive/
+data/
+models/
+backend/.venv/
+**/__pycache__/
+*.pyc
+frontend/node_modules/
+frontend/dist/
+.run/
+backend/.mpl-cache/

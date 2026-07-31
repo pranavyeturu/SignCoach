@@ -1,51 +1,47 @@
 # SignCoach AI
 
-Realtime ASL fingerspelling tutor prototype.
+A local, realtime ASL fingerspelling tutor with webcam landmarks, trained-letter recognition,
+practice and quiz modes, hold-to-confirm feedback, scoring, and a browser-local progress dashboard.
 
-SignCoach AI is a local computer vision app for learning ASL fingerspelling. The Phase 1 build focuses on the realtime webcam and hand-landmark foundation needed before training and serving an ASL letter classifier.
+## What is included
 
-## Current Capabilities
+- MediaPipe hand detection with a landmark overlay and framing feedback
+- Landmark feature extraction and Random Forest model training scripts
+- Smoothed top prediction, confidence, top-three results, and one-second confirmation
+- Practice mode with an A-Z selector
+- Quiz mode with randomized prompts and skip/incorrect scoring
+- Freestyle recognition
+- Session accuracy, streaks, per-letter accuracy, and hardest-letter ordering
+- Progress stored only in the browser
 
-- Opens the webcam in the browser
-- Sends compressed frames to a local FastAPI backend over WebSocket
-- Runs MediaPipe Hands on each frame
-- Detects whether a hand is visible
-- Returns 21 hand landmarks for a detected hand
-- Draws a landmark skeleton and bounding box over the video feed
-- Shows basic feedback states:
-  - camera off
-  - backend offline
-  - hand detected
-  - no hand detected
-  - move closer to the camera
-- Reads the local ASL dataset folder and displays class/image counts
+J and Z are motion-based ASL letters. A classifier trained on still images may recognize dataset
+poses for them, but reliable motion recognition is outside this static-image MVP.
 
-## Not Built Yet
+## Laptop safety and requirements
 
-- ASL letter classification
-- Model training scripts
-- Prediction smoothing
-- Practice mode scoring
-- Quiz mode
-- Progress dashboard
+Running the app is safe on an ordinary laptop. It processes frames locally and does not record or
+upload webcam video. Expect moderate CPU use while the camera is active. Stop the camera when you
+are finished to release the webcam and CPU.
 
-Those belong to Phase 2 and Phase 3.
+Recommended:
+
+- Python 3.10-3.12 (MediaPipe is not expected to work with Python 3.14)
+- Node.js 20+
+- 8 GB RAM (4 GB may work but training will be slower)
+- About 1 GB free for dependencies, plus roughly 3-5 GB for the full 87,000-image dataset
+
+Training is the heavy step: it can run for tens of minutes, make the fan spin, and temporarily use
+several CPU cores. It should not damage the laptop; keep it plugged in and ensure the vents are
+clear. Use `--max-per-class 500` first on a low-memory or older laptop.
 
 ## Dataset
 
-The dataset is intentionally not committed to git because it is large. Place the ASL Alphabet dataset here:
-
-```text
-archive/asl_alphabet_train/asl_alphabet_train/
-```
-
-Expected structure:
+The dataset is not committed. Place the ASL Alphabet dataset at:
 
 ```text
 archive/asl_alphabet_train/asl_alphabet_train/
   A/
   B/
-  C/
   ...
   Z/
   del/
@@ -53,78 +49,67 @@ archive/asl_alphabet_train/asl_alphabet_train/
   space/
 ```
 
-The current local dataset contains 29 classes and 87,000 images.
+## Windows setup
 
-## Requirements
+From PowerShell at the repository root:
 
-- Python 3.10-3.12
-- Node.js 20+
-- npm
-- Webcam-enabled browser
-
-MediaPipe may not install or run correctly on newer Python versions such as Python 3.14. Use a compatible Python interpreter when creating the backend virtual environment.
-
-## Start The Backend
-
-From the repo root:
-
-```bash
-cd backend
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-If `backend/.venv` already exists, start from:
-
-```bash
-cd backend
-source .venv/bin/activate
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Backend health check:
-
-```text
-http://127.0.0.1:8000/api/health
-```
-
-## Start The Frontend
-
-In a second terminal, from the repo root:
-
-```bash
-cd frontend
+```powershell
+py -3.12 -m venv backend/.venv
+backend/.venv/Scripts/python -m pip install -r backend/requirements.txt
+Set-Location frontend
 npm install
+Set-Location ..
+```
+
+## Train the classifier
+
+Start with a smaller extraction to verify the pipeline:
+
+```powershell
+backend/.venv/Scripts/python backend/scripts/extract_landmarks.py --max-per-class 500
+backend/.venv/Scripts/python backend/scripts/train_model.py
+```
+
+For the full available dataset:
+
+```powershell
+backend/.venv/Scripts/python backend/scripts/extract_landmarks.py --max-per-class 0
+backend/.venv/Scripts/python backend/scripts/train_model.py
+```
+
+Outputs are intentionally ignored by Git:
+
+- `data/processed/landmarks.csv`
+- `data/metrics/metrics.json`
+- `models/signcoach_model.joblib`
+
+If the backend is already running after training, restart it or call `POST /api/model/reload`.
+
+## Run the app
+
+Terminal 1:
+
+```powershell
+backend/.venv/Scripts/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000
+```
+
+Terminal 2:
+
+```powershell
+Set-Location frontend
 npm run dev
 ```
 
-Open:
-
-```text
-http://127.0.0.1:5173
-```
-
-Click `Start Camera`, allow webcam access, and move your hand into frame. The app should draw landmarks over your hand when detection succeeds.
+Open `http://127.0.0.1:5173`, allow camera access, and choose Practice, Quiz, Freestyle, or Dashboard.
+The frontend and backend bind only to `127.0.0.1`.
 
 ## Validation
 
-Checks used for the Phase 1 build:
-
-```bash
-cd backend
-.venv/bin/python -m compileall app
-```
-
-```bash
-cd frontend
+```powershell
+backend/.venv/Scripts/python -m compileall backend/app backend/scripts
+backend/.venv/Scripts/python -m unittest discover -s backend/tests
+Set-Location frontend
 npm run build
-npm audit
 ```
 
-The backend was also tested by sending a real dataset image to `/api/detect`; it returned `handDetected: true` with 21 landmarks.
-
-## Privacy
-
-Webcam frames are sent only from the browser to the local backend running on `localhost`. Frames are not saved by default and are not uploaded to a cloud service.
+Webcam frames are sent only to the local backend and are not saved by default.

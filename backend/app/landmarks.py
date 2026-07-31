@@ -27,13 +27,13 @@ class LandmarkResult:
 
 
 class HandLandmarkDetector:
-    def __init__(self) -> None:
+    def __init__(self, static_image_mode: bool = False) -> None:
         self._hands = None
         self._connections: list[tuple[int, int]] = []
 
         if mp is not None:
             self._hands = mp.solutions.hands.Hands(
-                static_image_mode=False,
+                static_image_mode=static_image_mode,
                 max_num_hands=1,
                 model_complexity=1,
                 min_detection_confidence=0.55,
@@ -86,7 +86,7 @@ class HandLandmarkDetector:
         if framing_score < 0.45:
             message = "Move closer to the camera."
         else:
-            message = "Hand detected. Prediction model comes in Phase 2."
+            message = "Hand detected."
 
         return LandmarkResult(
             hand_detected=True,
