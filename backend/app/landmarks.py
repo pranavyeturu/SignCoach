@@ -21,6 +21,7 @@ class LandmarkResult:
     landmarks: list[dict[str, float]]
     connections: list[tuple[int, int]]
     handedness: str | None
+    raw_handedness: str | None
     bounding_box: dict[str, float] | None
     framing_score: float
     message: str
@@ -52,6 +53,7 @@ class HandLandmarkDetector:
                 landmarks=[],
                 connections=[],
                 handedness=None,
+                raw_handedness=None,
                 bounding_box=None,
                 framing_score=0.0,
                 message="MediaPipe is not installed. Install backend dependencies first.",
@@ -67,6 +69,7 @@ class HandLandmarkDetector:
                 landmarks=[],
                 connections=self._connections,
                 handedness=None,
+                raw_handedness=None,
                 bounding_box=None,
                 framing_score=0.0,
                 message="Move your hand into frame.",
@@ -77,9 +80,10 @@ class HandLandmarkDetector:
             {"x": lm.x, "y": lm.y, "z": lm.z}
             for lm in hand_landmarks.landmark
         ]
-        handedness = None
+        raw_handedness = None
         if results.multi_handedness:
-            handedness = results.multi_handedness[0].classification[0].label
+            raw_handedness = results.multi_handedness[0].classification[0].label
+        handedness = physical_handedness_from_mediapipe(raw_handedness)
 
         bbox = bounding_box_for(landmarks)
         framing_score = score_framing(bbox)
@@ -93,6 +97,7 @@ class HandLandmarkDetector:
             landmarks=landmarks,
             connections=self._connections,
             handedness=handedness,
+            raw_handedness=raw_handedness,
             bounding_box=bbox,
             framing_score=framing_score,
             message=message,
@@ -150,15 +155,23 @@ def score_framing(bbox: dict[str, float] | None) -> float:
     return round((size_score * 0.65) + (center_score * 0.35), 3)
 
 
+def physical_handedness_from_mediapipe(label: str | None) -> str | None:
+    if label == "Left":
+        return "Right"
+    if label == "Right":
+        return "Left"
+    return label
+
+
 def result_to_payload(result: LandmarkResult) -> dict[str, Any]:
     return {
         "handDetected": result.hand_detected,
         "landmarks": result.landmarks,
         "connections": result.connections,
         "handedness": result.handedness,
+        "rawHandedness": result.raw_handedness,
         "boundingBox": result.bounding_box,
         "framingScore": result.framing_score,
         "message": result.message,
         "phase": "landmarks",
     }
-

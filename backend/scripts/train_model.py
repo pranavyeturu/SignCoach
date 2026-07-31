@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.config import DATA_DIR, MODEL_PATH  # noqa: E402
+from app.features import feature_names  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,6 +33,12 @@ def load_samples(path: Path) -> tuple[np.ndarray, np.ndarray]:
         rows = list(csv.reader(handle))
     if len(rows) < 3:
         raise SystemExit("At least two extracted samples are required.")
+    expected_columns = len(feature_names()) + 1
+    if len(rows[0]) != expected_columns:
+        raise SystemExit(
+            f"{path} has {len(rows[0]) - 1} features, but the current model expects {expected_columns - 1}. "
+            "Regenerate landmarks with extract_landmarks.py."
+        )
     return (
         np.asarray([[float(value) for value in row[1:]] for row in rows[1:]], dtype=np.float32),
         np.asarray([row[0] for row in rows[1:]]),

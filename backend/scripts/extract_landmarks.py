@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from app.config import DATASET_DIR, DATA_DIR, SUPPORTED_IMAGE_EXTENSIONS  # noqa: E402
-from app.features import normalize_landmarks  # noqa: E402
+from app.features import feature_names, normalize_landmarks  # noqa: E402
 from app.landmarks import HandLandmarkDetector  # noqa: E402
 
 
@@ -35,7 +35,7 @@ def main() -> None:
         raise SystemExit("MediaPipe is unavailable. Install backend requirements with Python 3.10-3.12.")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    columns = ["label", *[f"{axis}{index}" for index in range(21) for axis in ("x", "y", "z")]]
+    columns = ["label", *feature_names()]
     written = skipped = 0
 
     with args.output.open("w", newline="", encoding="utf-8") as handle:

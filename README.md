@@ -11,6 +11,7 @@ practice and quiz modes, hold-to-confirm feedback, scoring, and a browser-local 
 - Practice mode with an A-Z selector
 - Quiz mode with randomized prompts and skip/incorrect scoring
 - Freestyle recognition
+- Short calibration mode for collecting live webcam samples of difficult letters
 - Session accuracy, streaks, per-letter accuracy, and hardest-letter ordering
 - Progress stored only in the browser
 
@@ -84,6 +85,35 @@ Outputs are intentionally ignored by Git:
 - `models/signcoach_model.joblib`
 
 If the backend is already running after training, restart it or call `POST /api/model/reload`.
+
+## Calibrate for a user
+
+Use Calibration mode when a few letters are failing under the user's real webcam, lighting, or hand
+shape.
+
+This is especially useful for visually similar pairs such as `U/R` and `A/T`. The classifier uses
+extra geometric features for these pairs, including fingertip distances, joint angles, finger
+extension ratios, index/middle crossing cues, and thumb-position cues. Calibration adds live examples
+from the user's actual camera setup.
+
+1. Start the backend and frontend.
+2. Open `http://127.0.0.1:5173`.
+3. Start the camera.
+4. Choose `Calibration`.
+5. Select a difficult letter.
+6. Hold the sign in normal practice position.
+7. Click `Capture 12`.
+8. Repeat for the letters that are failing.
+9. Click `Retrain model`.
+
+Calibration samples are saved locally to:
+
+```text
+data/calibration/landmarks.csv
+```
+
+Retraining combines the original extracted dataset landmarks with the user's calibration samples and
+reloads the model in the running backend.
 
 ## Run the app
 

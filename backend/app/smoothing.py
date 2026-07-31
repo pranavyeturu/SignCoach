@@ -17,8 +17,9 @@ class PredictionSmoother:
         self._candidate = None
         self._candidate_since = monotonic()
 
-    def add(self, label: str, confidence: float) -> dict[str, object]:
-        if confidence < self.threshold:
+    def add(self, label: str, confidence: float, threshold: float | None = None) -> dict[str, object]:
+        active_threshold = self.threshold if threshold is None else threshold
+        if confidence < active_threshold:
             # A single blurry frame should not erase an otherwise steady hold.
             # No-hand frames still call reset() from the request pipeline.
             return {"label": None, "confidence": confidence, "stable": False, "holdProgress": 0.0}

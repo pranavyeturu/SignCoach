@@ -10,3 +10,7 @@ class DatasetSummary(BaseModel):
     classes: list[str]
     image_count: int
 
+
+class CalibrationSampleRequest(BaseModel):
+    label: str
+    landmarks: list[dict[str, float]]
