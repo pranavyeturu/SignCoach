@@ -14,3 +14,8 @@ class DatasetSummary(BaseModel):
 class CalibrationSampleRequest(BaseModel):
     label: str
     landmarks: list[dict[str, float]]
+
+
+class PhraseAnalyzeRequest(BaseModel):
+    phrase_id: str
+    frames: list[list[dict[str, float]]]

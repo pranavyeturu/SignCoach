@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, BarChart3, Camera, GraduationCap, Hand, Radio, RefreshCcw, Shuffle, SlidersHorizontal } from 'lucide-react';
+import { Activity, BarChart3, Camera, GraduationCap, Hand, Play, Radio, RefreshCcw, Shuffle, SlidersHorizontal, Video } from 'lucide-react';
 import './styles.css';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -10,6 +10,7 @@ const MODES = [
   { id: 'practice', label: 'Practice', icon: GraduationCap },
   { id: 'quiz', label: 'Quiz', icon: Shuffle },
   { id: 'freestyle', label: 'Freestyle', icon: Hand },
+  { id: 'phrases', label: 'Phrases', icon: Video },
   { id: 'calibration', label: 'Calibration', icon: SlidersHorizontal },
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
 ];
@@ -45,13 +46,17 @@ function App() {
   const [calibrationStatus, setCalibrationStatus] = React.useState('Capture 12-20 samples for letters that are failing.');
   const [capturingCalibration, setCapturingCalibration] = React.useState(false);
   const [trainingCalibration, setTrainingCalibration] = React.useState(false);
+  const [phrases, setPhrases] = React.useState([]);
+  const [selectedPhraseId, setSelectedPhraseId] = React.useState('yes');
+  const [phraseResult, setPhraseResult] = React.useState(null);
+  const [recordingPhrase, setRecordingPhrase] = React.useState(false);
   const [stats, setStats] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem('signcoach-progress')) || emptyStats(); }
     catch { return emptyStats(); }
   });
   const frameCounterRef = React.useRef({ count: 0, startedAt: performance.now() });
 
-  React.useEffect(() => { checkBackend(); checkCalibration(); return stopCamera; }, []);
+  React.useEffect(() => { checkBackend(); checkCalibration(); loadPhrases(); return stopCamera; }, []);
   React.useEffect(() => { drawOverlay(result); }, [result]);
   React.useEffect(() => { resultRef.current = result; }, [result]);
   React.useEffect(() => { localStorage.setItem('signcoach-progress', JSON.stringify(stats)); }, [stats]);
@@ -86,6 +91,8 @@ function App() {
         state: health.mediapipeAvailable ? 'ready' : 'missing-mediapipe',
         modelAvailable: health.modelAvailable,
         modelError: health.modelError,
+        phraseModelAvailable: health.phraseModelAvailable,
+        phraseModelError: health.phraseModelError,
       });
       setDataset(await datasetResponse.json());
     } catch { setBackend({ state: 'offline', modelAvailable: false }); }
@@ -97,6 +104,17 @@ function App() {
       setCalibration(await response.json());
     } catch {
       setCalibrationStatus('Start the backend to load calibration samples.');
+    }
+  }
+
+  async function loadPhrases() {
+    try {
+      const response = await fetch(`${API_BASE}/api/phrases`);
+      const catalog = await response.json();
+      setPhrases(catalog);
+      if (catalog.length) setSelectedPhraseId(catalog[0].id);
+    } catch {
+      setPhrases([]);
     }
   }
 
@@ -205,6 +223,42 @@ function App() {
     setSuccessOverlay(null);
     setMode(nextMode);
     if (nextMode === 'quiz') setTarget(randomLetter());
+    if (nextMode === 'phrases') setPhraseResult(null);
+  }
+
+  async function recordPhraseAttempt() {
+    if (recordingPhrase) return;
+    const phrase = phrases.find((item) => item.id === selectedPhraseId);
+    if (!phrase) return;
+    if (cameraState !== 'running') {
+      setPhraseResult({ score: 0, passed: false, feedback: 'Start the camera before recording a phrase.' });
+      return;
+    }
+
+    setRecordingPhrase(true);
+    setPhraseResult({ score: 0, passed: false, feedback: 'Recording phrase attempt...' });
+    const frames = [];
+    const endAt = Date.now() + Math.round((phrase.durationSeconds || 2) * 1000);
+    while (Date.now() < endAt) {
+      await wait(100);
+      const current = resultRef.current;
+      if (current?.handDetected && current.landmarks?.length === 21) {
+        frames.push(current.landmarks);
+      }
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/api/phrases/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phrase_id: selectedPhraseId, frames }),
+      });
+      setPhraseResult(await response.json());
+    } catch (error) {
+      setPhraseResult({ score: 0, passed: false, feedback: error?.message || 'Could not analyze phrase.' });
+    } finally {
+      setRecordingPhrase(false);
+    }
   }
 
   async function captureCalibrationBurst() {
@@ -291,6 +345,7 @@ function App() {
   const isRunning = cameraState === 'running';
   const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
   const showTarget = ['practice', 'quiz', 'calibration'].includes(mode);
+  const selectedPhrase = phrases.find((item) => item.id === selectedPhraseId);
 
   return (
     <main className="appShell">
@@ -323,12 +378,23 @@ function App() {
               </button>
               {['practice', 'quiz'].includes(mode) && <button className="secondaryButton" onClick={skipAttempt}>Skip / incorrect</button>}
               {mode === 'calibration' && <button className="secondaryButton" onClick={captureCalibrationBurst} disabled={capturingCalibration}>{capturingCalibration ? 'Capturing…' : 'Capture 12'}</button>}
+              {mode === 'phrases' && <button className="secondaryButton" onClick={recordPhraseAttempt} disabled={recordingPhrase}><Play size={17} />{recordingPhrase ? 'Recording...' : 'Record phrase'}</button>}
               <button className="iconButton" onClick={checkBackend} title="Refresh backend"><RefreshCcw size={18} /></button>
             </div>
           </div>
 
           <aside className="sidePanel">
-            <div><p className="eyebrow">{mode} mode</p><h2>{showTarget ? `Practice the letter ${target}` : 'Sign any supported letter'}</h2></div>
+            <div><p className="eyebrow">{mode} mode</p><h2>{mode === 'phrases' ? selectedPhrase?.label || 'Phrase practice' : showTarget ? `Practice the letter ${target}` : 'Sign any supported letter'}</h2></div>
+            {mode === 'phrases' && <PhrasePanel
+              phrases={phrases}
+              selectedPhraseId={selectedPhraseId}
+              onSelectPhrase={setSelectedPhraseId}
+              phraseResult={phraseResult}
+              recording={recordingPhrase}
+              modelAvailable={backend.phraseModelAvailable}
+              modelError={backend.phraseModelError}
+              onRecord={recordPhraseAttempt}
+            />}
             {['practice', 'calibration'].includes(mode) && <ReferenceCard letter={target} />}
             {['practice', 'calibration'].includes(mode) && <div className="letterGrid">{LETTERS.map((letter) => (
               <button key={letter} className={target === letter ? 'selected' : ''} onClick={() => setTarget(letter)}>{letter}</button>
@@ -495,6 +561,44 @@ function CalibrationPanel({ calibration, status, target, capturing, training, on
       </button>
     </div>
     <p>{status}</p>
+  </div>;
+}
+
+function PhrasePanel({ phrases, selectedPhraseId, onSelectPhrase, phraseResult, recording, modelAvailable, modelError, onRecord }) {
+  const selected = phrases.find((phrase) => phrase.id === selectedPhraseId);
+  return <div className="phrasePanel">
+    <div className="phrasePicker">
+      {phrases.map((phrase) => (
+        <button key={phrase.id} className={phrase.id === selectedPhraseId ? 'selected' : ''} onClick={() => onSelectPhrase(phrase.id)}>
+          {phrase.label}
+        </button>
+      ))}
+    </div>
+    {selected ? <>
+      <div className="lessonCard">
+        <div className="lessonHeader">
+          <span>{selected.difficulty}</span>
+          <strong>{selected.durationSeconds}s</strong>
+        </div>
+        <ol>
+          {selected.steps.map((step) => <li key={step}>{step}</li>)}
+        </ol>
+      </div>
+      <button className="primaryButton phraseRecord" onClick={onRecord} disabled={recording}>
+        <Play size={17} />{recording ? 'Recording...' : 'Record attempt'}
+      </button>
+    </> : <p className="emptyState compact">Start the backend to load phrases.</p>}
+    {phraseResult && <div className={`phraseResult ${phraseResult.passed ? 'passed' : 'retry'}`}>
+      <strong>{recording ? 'Recording' : `${phraseResult.score || 0}%`}</strong>
+      <span>{phraseResult.feedback}</span>
+    </div>}
+    {phraseResult?.modelPrediction && <div className="modelPrediction">
+      <strong>Model</strong>
+      <span>{phraseResult.modelPrediction.toUpperCase()} · {Math.round((phraseResult.modelConfidence || 0) * 100)}%</span>
+    </div>}
+    <p className="phraseNote">{modelAvailable
+      ? 'MS-ASL phrase model is loaded. Phrase attempts use model prediction plus rule-based motion checks.'
+      : modelError || 'No MS-ASL phrase model is trained yet. Phrase attempts use rule-based motion checks.'}</p>
   </div>;
 }
 

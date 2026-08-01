@@ -45,6 +45,25 @@ h1, h2, p { margin: 0; } h1 { font-size: 1.8rem; } h2 { font-size: 1.2rem; }
 .calibrationActions { display: flex; gap: 8px; }
 .calibrationActions .primaryButton, .calibrationActions .secondaryButton { flex: 1; }
 .calibrationPanel p { color: #52625e; font-size: .82rem; line-height: 1.35; }
+.phrasePanel { display: grid; gap: 11px; }
+.phrasePicker { display: flex; flex-wrap: wrap; gap: 6px; }
+.phrasePicker button { min-height: 34px; padding: 0 10px; border: 1px solid #d8e1dd; border-radius: 6px; background: #f5f8f7; color: #28403a; cursor: pointer; font-weight: 800; }
+.phrasePicker button.selected { color: #fff; border-color: #126b64; background: #126b64; }
+.lessonCard { overflow: hidden; border: 1px solid #d8e1dd; border-radius: 8px; background: #f8fbfa; }
+.lessonHeader { min-height: 38px; padding: 0 11px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d8e1dd; }
+.lessonHeader span { color: #65756f; font-size: .75rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.lessonHeader strong { color: #126b64; font-size: .9rem; }
+.lessonCard ol { margin: 0; padding: 12px 16px 14px 32px; display: grid; gap: 8px; color: #334844; font-size: .88rem; line-height: 1.35; }
+.phraseRecord { width: 100%; }
+.phraseResult { min-height: 64px; display: grid; grid-template-columns: 60px minmax(0,1fr); gap: 10px; align-items: center; padding: 12px; border-radius: 8px; }
+.phraseResult strong { font-size: 1.25rem; }
+.phraseResult span { font-size: .88rem; font-weight: 800; line-height: 1.3; }
+.phraseResult.passed { color: #0f4d46; background: #dff5f0; }
+.phraseResult.retry { color: #6b430b; background: #fff0d3; }
+.modelPrediction { min-height: 42px; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 11px; border: 1px solid #d8e1dd; border-radius: 7px; background: #f8fbfa; }
+.modelPrediction strong { color: #126b64; }
+.modelPrediction span { color: #52625e; font-weight: 900; }
+.phraseNote { padding: 10px; border-radius: 6px; color: #52625e; background: #f0f4f2; font-size: .8rem; line-height: 1.35; }
 .letterGrid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; }
 .letterGrid button { aspect-ratio: 1; padding: 0; border: 1px solid #d8e1dd; border-radius: 5px; background: #f5f8f7; cursor: pointer; font-weight: 800; font-size: .75rem; }
 .letterGrid button.selected { color: #fff; border-color: #126b64; background: #126b64; }

@@ -11,6 +11,8 @@ practice and quiz modes, hold-to-confirm feedback, scoring, and a browser-local 
 - Practice mode with an A-Z selector
 - Quiz mode with randomized prompts and skip/incorrect scoring
 - Freestyle recognition
+- Phrase lesson mode for starter ASL signs such as `YES`, `NO`, `GOOD`, and `MORNING`
+- Rule-based motion scoring for short phrase attempts, strongest for `YES` and `NO`
 - Short calibration mode for collecting live webcam samples of difficult letters
 - Session accuracy, streaks, per-letter accuracy, and hardest-letter ordering
 - Progress stored only in the browser
@@ -143,3 +145,76 @@ npm run build
 ```
 
 Webcam frames are sent only to the local backend and are not saved by default.
+
+## ASL video dataset recommendation
+
+For proper phrase/sign recognition, use an isolated-sign video dataset rather than the alphabet image
+dataset.
+
+Recommended first choice:
+
+- WLASL: word-level ASL video dataset with 2,000 ASL lexical signs.
+  - Official page: https://dxli94.github.io/WLASL/
+  - Useful for training isolated word/sign recognition before attempting full sentence translation.
+
+Other strong options:
+
+- MS-ASL: large real-world ASL video dataset with over 25,000 annotated clips and 1,000 signs.
+  - Microsoft download: https://www.microsoft.com/en-us/download/details.aspx?id=100121
+- ASL Citizen: crowdsourced isolated ASL dataset with about 84,000 videos and 2,700+ signs.
+  - Microsoft Research page: https://www.microsoft.com/en-us/research/project/asl-citizen/
+- ASLLVD: linguistically rich lexicon video dataset with thousands of citation-form signs and detailed annotations.
+  - Boston University page: https://www.bu.edu/asllrp/av/dai-asllvd.html
+
+Phrase mode in this app is currently a lesson and rule-checking MVP. A trained phrase model should
+use landmark/video sequences over time, not single-frame alphabet landmarks.
+
+## Phase 3: MS-ASL phrase model
+
+The `MS-ASL/` folder contains annotation JSON files. Those files reference online videos and clip
+timestamps; they do not include the video files themselves.
+
+Build a small starter-sign manifest:
+
+```bash
+cd backend
+source .venv/bin/activate
+python scripts/prepare_msasl_manifest.py --max-per-gloss 80
+```
+
+This creates:
+
+```text
+data/msasl/phrase_manifest.json
+```
+
+Download the referenced clips with `yt-dlp`:
+
+```bash
+python scripts/download_msasl_clips.py --limit 100
+```
+
+Remove `--limit 100` to download all manifest clips. Some source videos may be unavailable because
+MS-ASL references public web videos that can disappear over time.
+The first local smoke test downloaded 2 of 5 attempted clips; unavailable YouTube links are expected.
+
+Extract sequence features and train the phrase model:
+
+```bash
+python scripts/extract_msasl_sequence_features.py --max-per-gloss 60
+python scripts/train_phrase_model.py
+curl -X POST http://127.0.0.1:8000/api/phrases/model/reload
+```
+
+Train only after enough clips have downloaded and extracted. As a practical minimum, aim for at
+least 20 usable clips per starter sign.
+
+Generated outputs are ignored by Git:
+
+- `data/msasl/phrase_manifest.json`
+- `data/msasl/videos/`
+- `data/processed/msasl_phrase_features.csv`
+- `models/phrase_sign_model.joblib`
+
+When `models/phrase_sign_model.joblib` exists, Phrase mode combines the trained MS-ASL model with
+the existing rule-based motion checks.

@@ -11,6 +11,7 @@ from app.features import normalize_landmarks
 from app.feedback import confusing_pair_feedback
 from app.landmarks import physical_handedness_from_mediapipe
 from app.main import confidence_threshold_for
+from app.phrases import analyze_phrase, phrase_catalog
 from app.scoring import attempt_score
 from app.smoothing import PredictionSmoother
 
@@ -73,6 +74,22 @@ class CoreTests(unittest.TestCase):
         }.items():
             landmarks[index] = {"x": x, "y": y, "z": 0.0}
         self.assertEqual(a_t_shape_cue(landmarks).label, "T")
+
+    def test_phrase_catalog_includes_starter_signs(self):
+        ids = {phrase["id"] for phrase in phrase_catalog()}
+        self.assertIn("yes", ids)
+        self.assertIn("no", ids)
+
+    def test_yes_phrase_detects_nodding_motion(self):
+        frames = []
+        ys = [0.2, 0.25, 0.31, 0.24, 0.2, 0.26, 0.32, 0.24, 0.2]
+        for y in ys:
+            frame = [{"x": 0.5, "y": y, "z": 0.0} for _ in range(21)]
+            for index in (4, 8, 12, 16, 20):
+                frame[index] = {"x": 0.5 + index * 0.001, "y": y + index * 0.001, "z": 0.0}
+            frames.append(frame)
+        result = analyze_phrase("yes", frames)
+        self.assertTrue(result.passed)
 
 
 if __name__ == "__main__":
